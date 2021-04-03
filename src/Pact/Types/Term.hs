@@ -898,8 +898,19 @@ instance NFData ModRef
 instance HasInfo ModRef where getInfo = _modRefInfo
 instance Pretty ModRef where
   pretty (ModRef mn _sm _i) = pretty mn
-instance ToJSON ModRef where toJSON = lensyToJSON 4
-instance FromJSON ModRef where parseJSON = lensyParseJSON 4
+
+instance ToJSON ModRef where
+  toJSON (ModRef refName refSpec _) = object
+    [ "refName" .= refName
+    , "refSpec" .= refSpec
+    ]
+
+instance FromJSON ModRef where
+  parseJSON = withObject "ModRef" $ \o -> ModRef
+    <$> o .: "refName"
+    <*> o .: "refSpec"
+    <*> pure def
+
 instance Ord ModRef where
   (ModRef a b _) `compare` (ModRef c d _) = (a,b) `compare` (c,d)
 instance Arbitrary ModRef where
@@ -1144,7 +1155,7 @@ termCodec = Codec enc dec
            , meta .= tmeta, inf i ]
       TDynamic r m i ->
         ob [ dynRef .= r, dynMem .= m, inf i ]
-      TModRef mr _i -> toJSON mr
+      TModRef mr i -> ob [ modRef .= mr, inf i ]
 
     dec decval =
       let wo n f = withObject n f decval
@@ -1180,7 +1191,7 @@ termCodec = Codec enc dec
         <|> wo "Dynamic"
             (\o -> TDynamic <$> o .: dynRef <*> o .: dynMem <*> inf' o)
 
-        <|> parseWithInfo TModRef
+        <|> wo "ModRef" (\o -> TModRef <$>  o .: modRef <*> inf' o)
 
     ob = object
     moduleDef = "module"
@@ -1209,6 +1220,7 @@ termCodec = Codec enc dec
     hash' = "hash"
     dynRef = "dref"
     dynMem = "dmem"
+    modRef = "modRef"
 
 
 
